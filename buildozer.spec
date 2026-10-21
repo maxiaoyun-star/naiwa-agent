@@ -14,7 +14,8 @@ version = 0.2.0
 
 # 纯 Python 依赖，刻意保持最少：只有 Kivy。
 # cryptography / requests 都不引入，加密与网络全部用标准库实现，降低 CI 编译失败概率。
-requirements = python3,kivy==2.3.0
+# 不写死 kivy 版本：交给 python-for-android 的 recipe 选它自己验证过的版本。
+requirements = python3,kivy
 
 orientation = portrait
 fullscreen = 0
@@ -42,16 +43,11 @@ android.ndk = 25b
 android.ndk_api = 33
 android.accept_sdk_license = True
 
-# llama.cpp 的预编译产物（由 scripts/build_llama_android.sh 或 CI 生成）
-# 若目录为空，buildozer 会警告但不会中断构建，App 自动降级为 API 模式。
+# llama.cpp 的预编译产物（由 scripts/build_llama_android.sh 或 CI 生成）。
+# CI 在没有 .so 时会自动删掉这一行，避免 p4a 因为空目录/不存在的目录直接失败。
 android.add_libs_arm64_v8a = libs/arm64-v8a/*.so
 
-android.entrypoint = org.kivy.android.PythonActivity
-android.logcat_filters = *:S python:D
-android.release_artifact = apk
 
-p4a.branch = master
-p4a.local_recipes = p4a-recipes
 
 [buildozer]
 log_level = 2
