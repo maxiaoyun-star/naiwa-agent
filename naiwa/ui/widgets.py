@@ -326,16 +326,26 @@ class Field(TextInput):
         self._line_color.rgba = T.ACCENT if value else T.LINE
 
     # ------------------------------------------------------------------ 键盘兜底
+    def show_ime(self) -> None:
+        """把 Android 输入法拉起来。
+
+        只用 ``Window.show_keyboard()`` 不够 —— Kivy 里它依赖已经 request 过的
+        keyboard 对象，所以在真机上经常是空操作。先 ``request_keyboard(input_type='text')``
+        再 show，才真正会走到 SDL_StartTextInput → Android_JNI_ShowTextInput。
+        """
+        try:
+            from kivy.core.window import Window
+
+            Window.request_keyboard(None, self, "text")
+            Window.show_keyboard()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[naiwa] show_ime failed: {exc}")
+
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
-            # 显式要焦点 + 主动请求软键盘：部分国产 ROM 上只靠默认行为弹不出来
             self.focus = True
-            try:
-                from kivy.core.window import Window
-
-                Window.show_keyboard()
-            except Exception:  # noqa: BLE001
-                pass
+            # 延迟一帧：focus 生效后 SDL 才有文本输入目标，立刻调用会被忽略
+            Clock.schedule_once(lambda _dt: self.show_ime(), 0.08)
         return super().on_touch_down(touch)
 
     def paste_clipboard(self) -> str:

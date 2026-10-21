@@ -313,7 +313,7 @@ class SettingsScreen(Screen):
         body.bind(texture_size=lambda *_: setattr(body, "height", body.texture_size[1]))
         box.add_widget(body)
         scroll.add_widget(box)
-        popup = Popup(title="错误日志", content=scroll, size_hint=(0.94, 0.8))
+        popup = Popup(title="错误日志", content=scroll, size_hint=(0.94, 0.8), title_font=T.FONT_REGULAR)
         popup.open()
 
     # ------------------------------------------------------------------ 状态

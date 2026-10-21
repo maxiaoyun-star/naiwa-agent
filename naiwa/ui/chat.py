@@ -18,7 +18,17 @@ from kivy.uix.widget import Widget
 from ..agent.runtime import QUICK_PROMPTS, Reply
 from ..llm.prompt import offline_reply
 from . import theme as T
-from .widgets import ChatBubble, Chip, Field, Muted, PrimaryButton, Screen, StatusPill, TopBar
+from .widgets import (
+    ChatBubble,
+    Chip,
+    Field,
+    GhostButton,
+    Muted,
+    PrimaryButton,
+    Screen,
+    StatusPill,
+    TopBar,
+)
 
 
 class ChatScreen(Screen):
@@ -52,6 +62,11 @@ class ChatScreen(Screen):
         self.add_widget(self._chips())
 
         row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(46), spacing=dp(8))
+        # 有些 ROM 上点输入框不一定弹输入法，给一个显式的「拉起键盘」按钮
+        ime_button = GhostButton("⌨", size_hint=(None, 1), width=dp(46), height=dp(44))
+        ime_button.font_size = sp(20)
+        ime_button.bind(on_release=lambda *_: self.input.show_ime())
+        row.add_widget(ime_button)
         self.input = Field(hint_text="问点什么…", height=dp(44))
         self.input.bind(on_text_validate=self._on_enter)
         row.add_widget(self.input)
@@ -60,6 +75,14 @@ class ChatScreen(Screen):
         self.send_button.bind(on_release=self._on_send)
         row.add_widget(self.send_button)
         self.add_widget(row)
+
+    def _paste_to_input(self, send: bool = False) -> None:
+        text = self.input.paste_clipboard()
+        if text and send:
+            self.send(text)
+
+    def _start_ime(self, *_args) -> None:
+        self.input.show_ime()
 
     # ------------------------------------------------------------------ 结构
     def _chips(self) -> ScrollView:
@@ -72,6 +95,9 @@ class ChatScreen(Screen):
         )
         box = BoxLayout(orientation="horizontal", size_hint_x=None, spacing=dp(8), padding=[0, dp(6)])
         box.bind(minimum_width=box.setter("width"))
+        paste = Chip("📋 粘贴")
+        paste.bind(on_release=lambda *_: self._paste_to_input())
+        box.add_widget(paste)
         for prompt in QUICK_PROMPTS:
             chip = Chip(prompt)
             chip.bind(on_release=lambda inst: self.send(inst.text))

@@ -10,7 +10,7 @@ source.include_exts = py,png,jpg,kv,ttf,json,md,txt,otf
 source.exclude_dirs = tests,docs,.github,probe,__pycache__,build,dist,.venv,.venv-uitest,native
 source.exclude_patterns = *.pyc,notice_*.txt,read_*_docx.py,deep_dump_docx.py,*.part
 
-version = 0.2.1
+version = 0.2.2
 
 # 纯 Python 依赖，刻意保持最少：只有 Kivy。
 # cryptography / requests 都不引入，加密与网络全部用标准库实现，降低 CI 编译失败概率。

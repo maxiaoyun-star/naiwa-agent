@@ -170,10 +170,14 @@ class NaiwaApp(App):
             except Exception as exc:  # noqa: BLE001
                 traceback.print_exc()
                 if on_error is not None:
-                    Clock.schedule_once(lambda _dt: on_error(exc), 0)
+                    # 必须用默认参数把 exc 绑进去：Python 在 except 块结束时会
+                    # 删掉 exc 变量，lambda 稍后在 Clock 里执行就会
+                    # NameError: cannot access free variable 'exc'
+                    # ——这曾经是「点登录必闪退」的元凶。
+                    Clock.schedule_once(lambda _dt, e=exc: on_error(e), 0)
                 return
             if on_done is not None:
-                Clock.schedule_once(lambda _dt: on_done(result), 0)
+                Clock.schedule_once(lambda _dt, r=result: on_done(r), 0)
 
         threading.Thread(target=worker, daemon=True).start()
 
