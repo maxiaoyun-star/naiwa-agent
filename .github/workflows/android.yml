@@ -19,6 +19,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# 失败时要把构建日志推回仓库（ci-logs 分支），所以需要写权限
+permissions:
+  contents: write
+
 jobs:
   # ---------------------------------------------------------------- 单元测试
   test:
@@ -91,7 +95,8 @@ jobs:
       # llama.cpp 用 NDK 交叉编译成 arm64 的 .so，再由 buildozer 的
       # android.add_libs_arm64_v8a 打进 APK。失败不阻塞打包：App 会降级为 API 模式。
       - name: 编译 llama.cpp（arm64）
-        if: github.event.inputs.build_llama != 'false'
+        # 默认不在 push 时跑：先保证 APK 能出，再打开原生库（workflow_dispatch 里勾 build_llama）
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_llama == 'true'
         continue-on-error: true
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
@@ -179,3 +184,24 @@ jobs:
             out/*.log
           if-no-files-found: warn
           retention-days: 30
+
+      # 公开仓库的 Actions 日志必须登录才能看，而这里需要一个不需要登录就能读的日志。
+      # 失败时把 buildozer.log 推到 ci-logs 分支，raw.githubusercontent 就能直接读。
+      - name: 失败时把日志推到 ci-logs 分支
+        if: failure()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          mkdir -p ci-log
+          cp buildozer.log ci-log/ 2>/dev/null || true
+          cp llama-build.log ci-log/ 2>/dev/null || true
+          cp buildozer.spec ci-log/ 2>/dev/null || true
+          cd ci-log
+          git init -q
+          git config user.name "naiwa-ci"
+          git config user.email "ci@naiwa.invalid"
+          git add -A
+          git commit -q -m "ci log $(date -u +%FT%TZ)" || true
+          git push -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" HEAD:ci-logs
