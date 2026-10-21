@@ -57,15 +57,21 @@ def _text(**kwargs):
 class H1(Label):
     def __init__(self, text: str = "", **kwargs):
         kwargs.update(_text(font_size=sp(26), bold=True, size_hint_y=None))
+        kwargs.setdefault("halign", "left")
+        kwargs.setdefault("valign", "middle")
         super().__init__(text=text, **kwargs)
         self.height = dp(34)
+        self.bind(width=lambda *_: setattr(self, "text_size", (self.width, None)))
 
 
 class H2(Label):
     def __init__(self, text: str = "", **kwargs):
         kwargs.update(_text(font_size=sp(20), bold=True, size_hint_y=None))
+        kwargs.setdefault("halign", "left")
+        kwargs.setdefault("valign", "middle")
         super().__init__(text=text, **kwargs)
         self.height = dp(28)
+        self.bind(width=lambda *_: setattr(self, "text_size", (self.width, None)))
 
 
 class Body(Label):
@@ -395,6 +401,17 @@ class Empty(Label):
 
 def spacer(height: float = 8) -> Widget:
     return Widget(size_hint_y=None, height=dp(height))
+
+
+def fit_height(label: Label) -> Label:
+    """让 Label 的高度跟着文字走（多行也不会被裁掉）。
+
+    注意会同时把 ``size_hint_y`` 设为 None，只适用于「按内容撑开」的标签。
+    """
+    label.size_hint_y = None
+    label.bind(width=lambda *_: setattr(label, "text_size", (label.width, None)))
+    label.bind(texture_size=lambda *_: setattr(label, "height", label.texture_size[1]))
+    return label
 
 
 def hbox(*children, **kwargs) -> BoxLayout:

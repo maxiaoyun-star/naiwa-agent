@@ -7,8 +7,8 @@ package.domain = com.naiwa
 source.dir = .
 # 打包进 APK 的资源类型（模型 .gguf 故意不在这里，运行时下载/导入）
 source.include_exts = py,png,jpg,kv,ttf,json,md,txt,otf
-source.exclude_dirs = tests,docs,.github,probe,__pycache__,build,dist,.venv
-source.exclude_patterns = *.pyc,notice_*.txt,read_*_docx.py,deep_dump_docx.py
+source.exclude_dirs = tests,docs,.github,probe,__pycache__,build,dist,.venv,.venv-uitest,native
+source.exclude_patterns = *.pyc,notice_*.txt,read_*_docx.py,deep_dump_docx.py,*.part
 
 version = 0.2.0
 
@@ -35,8 +35,10 @@ android.archs = arm64-v8a
 android.api = 36
 # Android 13 = API 33，作为最低支持版本
 android.minapi = 33
-# NDK r27 起支持 16 KB 页对齐链接（Android 15+ 的必要条件）
-android.ndk = 27c
+# NDK 用 25b：与 python-for-android 的兼容性最稳，且它自带 API 33 平台头文件。
+# 16 KB 页对齐靠链接参数（scripts/build_llama_android.sh 里的 max-page-size），
+# 不依赖 NDK 版本，所以没必要为了 16 KB 页去换 r27/r28。
+android.ndk = 25b
 android.ndk_api = 33
 android.accept_sdk_license = True
 

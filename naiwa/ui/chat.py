@@ -11,6 +11,7 @@ import threading
 from kivy.clock import Clock
 from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.widget import Widget
 
@@ -34,13 +35,17 @@ class ChatScreen(Screen):
         self.add_widget(bar)
 
         self.scroll = ScrollView(do_scroll_x=False, bar_width=0)
-        self.list = BoxLayout(
-            orientation="vertical",
+        # 用 GridLayout 而不是 BoxLayout：BoxLayout 纵向时会把子控件贴到底部，
+        # 消息少的时候气泡会沉在屏幕下沿；GridLayout 是从上往下排的。
+        self.list = GridLayout(
+            cols=1,
             size_hint_y=None,
             spacing=dp(2),
             padding=[dp(2), dp(6)],
         )
-        self.list.bind(minimum_height=self.list.setter("height"))
+        # 消息少的时候让列表填满视口，否则 ScrollView 会把内容放在底部
+        self.list.bind(minimum_height=self._sync_list_height)
+        self.scroll.bind(height=self._sync_list_height)
         self.scroll.add_widget(self.list)
         self.add_widget(self.scroll)
 
@@ -83,6 +88,12 @@ class ChatScreen(Screen):
 
     def _scroll_bottom(self) -> None:
         Clock.schedule_once(lambda _dt: setattr(self.scroll, "scroll_y", 0), 0.06)
+
+    def _sync_list_height(self, *_args) -> None:
+        try:
+            self.list.height = max(self.list.minimum_height, self.scroll.height)
+        except Exception:  # noqa: BLE001 - 布局计算期间属性可能还没准备好
+            pass
 
     def _on_enter(self, _inst) -> None:
         self.send()

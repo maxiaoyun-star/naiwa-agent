@@ -14,7 +14,6 @@ dist/
 *.apk
 *.aab
 libs/
-p4a-recipes/*/   # 只保留 README
 
 # 模型与下载缓存
 *.gguf

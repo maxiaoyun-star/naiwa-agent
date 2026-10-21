@@ -27,6 +27,7 @@ from .widgets import (
     PrimaryButton,
     Screen,
     TopBar,
+    fit_height,
 )
 
 MODES = ((MODE_AUTO, "自动"), (MODE_LOCAL, "仅本地"), (MODE_REMOTE, "仅云端"))
@@ -82,15 +83,24 @@ class SettingsScreen(Screen):
         return field
 
     def _chip_row(self, card: Card, items, group: str) -> dict[str, Chip]:
-        row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(38), spacing=dp(8))
+        # 平台可能有 5 个以上，横向滚动比换行更省纵向空间
+        scroll = ScrollView(
+            size_hint_y=None,
+            height=dp(38),
+            do_scroll_x=True,
+            do_scroll_y=False,
+            bar_width=0,
+        )
+        row = BoxLayout(orientation="horizontal", size_hint_x=None, spacing=dp(8))
+        row.bind(minimum_width=row.setter("width"))
         chips = {}
         for key, label in items:
             chip = Chip(label)
             chip.bind(on_release=lambda inst, k=key: self._select(group, k))
             chips[key] = chip
             row.add_widget(chip)
-        row.add_widget(Widget())
-        card.add_widget(row)
+        scroll.add_widget(row)
+        card.add_widget(scroll)
         self._chips[group] = chips
         return chips
 
@@ -112,9 +122,7 @@ class SettingsScreen(Screen):
     # ------------------------------------------------------------------ 模型
     def _build_model(self) -> None:
         card = self._section("本地模型")
-        self.model_status = Body("检查中…", font_size=sp(14))
-        self.model_status.size_hint_y = None
-        self.model_status.height = dp(40)
+        self.model_status = fit_height(Body("检查中…", font_size=sp(14)))
         card.add_widget(self.model_status)
 
         self._field(card, "model_url", "模型下载直链（https://…）", self.app.settings.get("model_url", ""))
@@ -134,8 +142,8 @@ class SettingsScreen(Screen):
 
         self._hint(
             card,
-            f"文件名必须是 {defaults.MODEL_FILENAME}。也可以把模型放到手机这个目录，"
-            f"App 启动会自动识别：{config.models_dir()}",
+            f"文件名必须是 {defaults.MODEL_FILENAME}。\n"
+            f"也可以放到这个目录，App 启动会自动识别：\n{config.models_dir()}",
         )
 
     def download_model(self) -> None:
@@ -181,7 +189,7 @@ class SettingsScreen(Screen):
     def _build_mode(self) -> None:
         card = self._section("推理模式")
         self._chip_row(card, MODES, "mode")
-        self._hint(card, "自动 = 有本地模型就用本地，失败再走云端；仅云端 = 完全不加载本地模型。")
+        self._hint(card, "自动 = 有本地模型就用本地，失败再走云端。\n仅云端 = 完全不加载本地模型。")
 
     # ------------------------------------------------------------------ 云端
     def _build_remote(self) -> None:
@@ -285,7 +293,10 @@ class SettingsScreen(Screen):
 
     def _refresh(self) -> None:
         installed, detail = self.app.model_manager.status()
-        self.model_status.text = ("已安装 · " + detail) if installed else "未安装 · " + detail
+        if installed:
+            self.model_status.text = f"已安装 · {detail}"
+        else:
+            self.model_status.text = "还没安装模型文件：下载，或用数据线放到下面的目录再点「重新加载」"
 
         mode = self.app.settings.get("llm_mode", MODE_AUTO)
         for key, chip in self._chips.get("mode", {}).items():

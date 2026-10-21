@@ -70,14 +70,36 @@ _CJK_CANDIDATES = (
     "/system/fonts/NotoSansSC-Regular.otf",
     "/system/fonts/DroidSansFallback.ttf",
     "/system/fonts/DroidSansChinese.ttf",
+    "/system/fonts/MiSans-Regular.ttf",
+    "/system/fonts/HarmonyOS_Sans_SC_Regular.ttf",
 )
 
+# 系统字体目录里，文件名包含这些片段的都当成中文字体候选（国产 ROM 命名五花八门）
+_CJK_HINTS = ("cjk", "han", "sc-", "sc_", "misans", "harmony", "sourcehan", "noto")
+
 _registered: str | None = None
+
+
+def _scan_system_fonts() -> Path | None:
+    folder = Path("/system/fonts")
+    if not folder.is_dir():
+        return None
+    try:
+        for candidate in sorted(folder.iterdir()):
+            if candidate.suffix.lower() not in (".ttf", ".otf", ".ttc"):
+                continue
+            name = candidate.name.lower()
+            if any(hint in name for hint in _CJK_HINTS):
+                return candidate
+    except OSError:
+        return None
+    return None
 
 
 def register_fonts() -> str | None:
     """注册中文字体，返回可用的字体名（失败返回 None，界面跟系统默认字体）。
 
+    查找顺序：环境变量 ``NAIWA_FONT`` → 随包字体 → 系统字体已知路径 → 系统字体目录扫描。
     必须在创建任何 Label 之前调用。
     """
     global _registered, FONT_REGULAR, FONT_BOLD
@@ -86,11 +108,20 @@ def register_fonts() -> str | None:
 
     root = Path(config.__file__).resolve().parent.parent
     found: Path | None = None
-    for rel in _CJK_CANDIDATES:
-        candidate = Path(rel) if os.path.isabs(rel) else root / rel
-        if candidate.is_file():
-            found = candidate
-            break
+
+    override = os.environ.get("NAIWA_FONT", "").strip()
+    if override and Path(override).is_file():
+        found = Path(override)
+
+    if found is None:
+        for rel in _CJK_CANDIDATES:
+            candidate = Path(rel) if os.path.isabs(rel) else root / rel
+            if candidate.is_file():
+                found = candidate
+                break
+
+    if found is None:
+        found = _scan_system_fonts()
 
     if found is None:
         _registered = ""

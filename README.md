@@ -30,7 +30,19 @@
 - **Android 13 起分区存储** → 不再申请读写外部存储、也不去 `/sdcard/Download` 找模型，
   只用 App 私有目录和它自己的 `Android/data/<包名>/files`（两者都不需要权限）。
 
-## 二、这个仓库怎么变成 APK
+## 二、界面预览
+
+真机渲染由 `tests/ui_screenshot.py` 生成（纯白 + 细描边 + 近黑强调色，无第三方 UI 库）：
+
+| 首页 | 对话 |
+|---|---|
+| ![首页](screenshots/home.png) | ![对话](screenshots/chat.png) |
+
+| 校园查询 | 登录 | 设置 |
+|---|---|---|
+| ![课表](screenshots/schedule.png) | ![登录](screenshots/login.png) | ![设置](screenshots/settings.png) |
+
+## 三、这个仓库怎么变成 APK
 
 提交后由 **GitHub Actions** 自动构建，不需要本地装 Android SDK。
 
@@ -39,9 +51,9 @@
 3. 构建完成后在该次运行页面底部下载 `naiwa-agent-debug-apk`，得到 `naiwa-0.2.0-arm64-v8a-debug.apk`。
 4. 传到手机安装（需要允许「安装未知来源应用」）。
 
-> 首次构建约 30–45 分钟（要下载 Android SDK / NDK r27 并编译依赖），之后有缓存约 10 分钟。
+> 首次构建约 30–45 分钟（要下载 Android SDK / NDK 25b 并编译依赖），之后有缓存约 10 分钟。
 
-## 三、模型怎么进手机
+## 四、模型怎么进手机
 
 GitHub 不能把 1.19 GB 的 GGUF 塞进 APK（会超出大小限制、也会让安装变慢），所以模型是**首次启动时下载**或**手动导入**：
 
@@ -50,7 +62,7 @@ GitHub 不能把 1.19 GB 的 GGUF 塞进 APK（会超出大小限制、也会让
   `Android/data/com.naiwa.naiwaagent/files/models/` 目录下，App 启动会自动识别。
 - 模型存放路径在 App 私有目录，卸载 App 会一起删除。
 
-## 四、本地开发
+## 五、本地开发
 
 ```bash
 python -m venv .venv
@@ -67,7 +79,7 @@ python main.py
 python -m unittest discover -s tests -v
 ```
 
-## 五、目录结构
+## 六、目录结构
 
 ```
 main.py                 入口，装配 App
@@ -98,11 +110,11 @@ docs/                   作品说明文档、技术方案、CAS 接入说明
 scripts/                模型下载、接口探测辅助脚本
 ```
 
-## 六、合规说明
+## 七、合规说明
 
 按赛事要求：全部开发、调试、模型调用仅使用国内合规模型与国内平台。本项目默认模型为 Qwen 系列开源权重（本地推理），API 接入仅列举国内厂商，未包含任何境外服务。
 
-## 七、当前已知限制
+## 八、当前已知限制
 
 见 `docs/技术方案.md` 的「已知限制」一节。最关键的一条：**教务数据接口需要你用自己的账号抓一次包**，
 把地址填进 App 的「设置 → 教务接口」（或改 `naiwa/campus/portal.py` 的字段别名表），

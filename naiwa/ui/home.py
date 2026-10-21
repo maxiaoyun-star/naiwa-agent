@@ -15,7 +15,7 @@ from kivy.uix.widget import Widget
 
 from .. import config
 from . import theme as T
-from .widgets import Body, Card, H1, H2, Muted, PrimaryButton, Screen, StatusPill
+from .widgets import Body, Card, H1, H2, Muted, PrimaryButton, Screen, StatusPill, fit_height
 
 
 class TapCard(Card):
@@ -72,8 +72,8 @@ class HomeScreen(Screen):
         return box
 
     def _status_card(self) -> Card:
-        card = Card(size_hint_y=None, height=dp(126))
-        row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(24))
+        card = Card()  # 高度跟着内容走
+        row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(22))
         caption = Muted("模型状态", size_hint_x=None, width=dp(60))
         caption.valign = "middle"
         row.add_widget(caption)
@@ -82,9 +82,7 @@ class HomeScreen(Screen):
         row.add_widget(self.pill)
         card.add_widget(row)
 
-        self.status_text = Body("正在检查本地模型…", font_size=sp(14))
-        self.status_text.size_hint_y = None
-        self.status_text.height = dp(38)
+        self.status_text = fit_height(Body("正在检查本地模型…", font_size=sp(14)))
         card.add_widget(self.status_text)
 
         self.status_action = PrimaryButton("加载本地模型", height=dp(36))
@@ -136,7 +134,7 @@ class HomeScreen(Screen):
             self.status_action.text = "已就绪"
             self.status_action.disabled = True
         elif self.app.model_manager.existing() is None:
-            self.status_text.text = f"还没安装 {self.app.model_manager.filename}，去设置里下载或导入"
+            self.status_text.text = "还没安装本地模型，点下面按钮下载或导入"
             self.status_action.text = "去安装模型"
             self.status_action.disabled = False
         else:
