@@ -113,12 +113,20 @@ def register_fonts() -> str | None:
 
 
 def apply_window() -> None:
-    """窗口级设置：白底、软键盘不遮挡输入框。"""
+    """窗口级设置：白底、软键盘不遮挡输入框、深色状态栏图标。"""
     from kivy.core.window import Window
 
     Window.clearcolor = BG
     try:
         Window.softinput_mode = "below_target"
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Android 15+ 强制 edge-to-edge：白底配深色状态栏图标，否则时间/电量看不见
+    try:
+        from .. import platform_compat
+
+        platform_compat.set_light_system_bars()
     except Exception:  # noqa: BLE001
         pass
 

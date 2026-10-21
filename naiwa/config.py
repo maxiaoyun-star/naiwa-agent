@@ -14,8 +14,11 @@ from pathlib import Path
 APP_NAME = "奶娃Agent"
 APP_NAME_EN = "Naiwa Agent"
 APP_ID = "com.naiwa.naiwaagent"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 BUILD_STAGE = "创意赛参赛版"
+# 兼容区间，同时用于「关于」页展示
+ANDROID_MIN_API = 33   # Android 13
+ANDROID_MAX_API = 37   # Android 17
 
 # ------------------------------------------------------------------ 校园系统
 CAS_BASE = "https://mysso.cust.edu.cn/cas"
@@ -105,16 +108,16 @@ def model_search_paths(filename: str) -> list[Path]:
     """模型文件的查找顺序。
 
     1. 应用私有目录（App 内下载 / 首次导入的位置）
-    2. Android 外置私有目录（用数据线从电脑拷进来的最方便的位置）
-    3. 公共下载目录
+    2. 应用自己的外部私有目录（数据线 adb push 进来最方便的位置，**不需要任何权限**）
+
+    Android 13 起 `/sdcard` 与 `/sdcard/Download` 已经无法直接读取（分区存储），
+    所以刻意不再往那里找 —— 找不到还多耗一次 IO，还会误导用户。
     """
     candidates = [models_dir() / filename]
     if is_android():
         candidates += [
-            Path("/sdcard/Android/data") / APP_ID / "files" / "models" / filename,
             Path("/storage/emulated/0/Android/data") / APP_ID / "files" / "models" / filename,
-            Path("/sdcard/Download") / filename,
-            Path("/storage/emulated/0/Download") / filename,
+            Path("/sdcard/Android/data") / APP_ID / "files" / "models" / filename,
         ]
     else:
         candidates += [

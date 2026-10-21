@@ -135,9 +135,18 @@ class Screen(_KivyScreen):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        inset_top, inset_bottom = 0.0, 0.0
+        try:
+            from .. import platform_compat
+
+            inset_top, inset_bottom = platform_compat.insets_dp()
+        except Exception:  # noqa: BLE001
+            pass
+
         self._body = BoxLayout(
             orientation="vertical",
-            padding=[T.PAD, T.PAD, T.PAD, T.PAD],
+            # Android 15+ 强制 edge-to-edge，顶部/底部要让出状态栏与导航栏
+            padding=[T.PAD, T.PAD + dp(inset_top), T.PAD, T.PAD + dp(inset_bottom)],
             spacing=T.PAD_S,
         )
         with self._body.canvas.before:

@@ -21,7 +21,8 @@ cd "$REPO_ROOT"
 LLAMA_CPP_REPO="${LLAMA_CPP_REPO:-https://github.com/ggml-org/llama.cpp.git}"
 LLAMA_CPP_TAG="${LLAMA_CPP_TAG:-master}"
 ABI="${ABI:-arm64-v8a}"
-ANDROID_API="${ANDROID_API:-24}"
+# 与 buildozer.spec 的 android.ndk_api 保持一致：Android 13 (API 33) 起
+ANDROID_API="${ANDROID_API:-33}"
 WORK_DIR="${WORK_DIR:-build/llama-android}"
 OUT_DIR="$REPO_ROOT/libs/$ABI"
 
@@ -45,10 +46,17 @@ fi
 
 # ---------------------------------------------------------------- 2. 编译 llama.cpp
 BUILD_DIR="$WORK_DIR/build"
+# 16 KB 页对齐：Android 15+ 的部分设备使用 16 KB 内存页，原生库未按 16 KB 对齐会直接崩溃。
+# NDK r28 起可用 -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON；
+# NDK r27 用下面这组链接参数也能达到同样效果。
+PAGE_FLAGS="-Wl,-z,max-page-size=16384"
 cmake -S "$SRC_DIR" -B "$BUILD_DIR" \
   -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
   -DANDROID_ABI="$ABI" \
   -DANDROID_PLATFORM="android-$ANDROID_API" \
+  -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON \
+  -DCMAKE_SHARED_LINKER_FLAGS="$PAGE_FLAGS" \
+  -DCMAKE_MODULE_LINKER_FLAGS="$PAGE_FLAGS" \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_SHARED_LIBS=ON \
   -DLLAMA_CURL=OFF \
@@ -96,12 +104,14 @@ echo "→ 编译 native/naiwa_llama.c"
   -I"$SRC_DIR/ggml/include" \
   "$REPO_ROOT/native/naiwa_llama.c" \
   -L"$BUILD_DIR/bin" -lllama -lggml -lggml-base -lggml-cpu \
+  -Wl,-z,max-page-size=16384 \
   -Wl,-rpath,'$ORIGIN' \
   -lm -o "$OUT_DIR/libnaiwa_llama.so" \
   || "$CC" -shared -fPIC -O2 -std=c11 \
        -I"$SRC_DIR/include" -I"$SRC_DIR/ggml/include" \
        "$REPO_ROOT/native/naiwa_llama.c" \
        -L"$BUILD_DIR/bin" -lllama \
+       -Wl,-z,max-page-size=16384 \
        -Wl,-rpath,'$ORIGIN' -lm -o "$OUT_DIR/libnaiwa_llama.so"
 
 # 去掉调试符号，能省几 MB
