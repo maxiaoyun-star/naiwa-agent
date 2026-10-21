@@ -66,7 +66,10 @@ cmake -S "$SRC_DIR" -B "$BUILD_DIR" \
   -DGGML_OPENMP=OFF \
   -DGGML_LLAMAFILE=OFF
 
-cmake --build "$BUILD_DIR" --config Release -j"$(nproc 2>/dev/null || echo 4)"
+# 只编 llama 这个库目标：新版 llama.cpp 的 app/ 目录（llama-cli）会依赖
+# llama-server-impl / llama-cli-impl，一旦 -DLLAMA_BUILD_SERVER=OFF 就链接不上
+# （ld.lld: unable to find library -lllama-server-impl）。只构建我们要的库最省事。
+cmake --build "$BUILD_DIR" --config Release --target llama -j"$(nproc 2>/dev/null || echo 4)"
 
 # ---------------------------------------------------------------- 3. 编译 C 薄封装
 HOST_TAG=""
