@@ -18,7 +18,7 @@
 | 最低版本 | **Android 13（API 33）** |
 | 已适配 | Android 13 / 14 / 15 / 16 / 17（API 33–37） |
 | 架构 | arm64-v8a（2019 年后的机器基本都覆盖） |
-| compileSdk / targetSdk | 36（要跟到 37 就改 `buildozer.spec` 的 `android.api`） |
+| compileSdk / targetSdk | 34（34 的 APK 在 13–17 上都能装能跑；要跟到 36/37 改 `buildozer.spec` 的 `android.api`） |
 | 权限 | 仅 `INTERNET`、`ACCESS_NETWORK_STATE` |
 
 跨版本已经处理掉的三件事：

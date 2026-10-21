@@ -29,10 +29,10 @@ android.permissions = INTERNET,ACCESS_NETWORK_STATE
 
 # 端侧推理只需要 arm64；同时构建 arm64 可覆盖 2019 年后几乎所有国产安卓机
 android.archs = arm64-v8a
-# compileSdk / targetSdk。Android 15 起 targetSdk>=35 会强制 edge-to-edge，
-# App 已用 naiwa/platform_compat.py 读取系统栏 insets 让出安全区。
-# 想跟到 Android 17 时把这里改成 37 即可。
-android.api = 36
+# compileSdk / targetSdk。先用 34：python-for-android 的 gradle 模板对 34 支持最成熟，
+# 34 的 APK 在 Android 13–17 上都能装能跑。想跟到 36/37 时改这里，
+# 并同步 naiwa/config.py 的 ANDROID_MAX_API（CI 会跑一次验证）。
+android.api = 34
 # Android 13 = API 33，作为最低支持版本
 android.minapi = 33
 # NDK 用 25b：与 python-for-android 的兼容性最稳，且它自带 API 33 平台头文件。
