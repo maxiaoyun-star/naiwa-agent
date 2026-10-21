@@ -46,7 +46,9 @@ void *naiwa_load(const char *path, int n_threads) {
         return NULL;
     }
     struct llama_model_params mparams = llama_model_default_params();
-    mparams.use_mmap = true;
+    // 不要再动 mparams 的字段：llama.cpp 的 llama_model_params 在 2026 版里把
+    // use_mmap 之类挪走了，写死字段名会编译失败（CI 报过 no member named 'use_mmap'）。
+    // 默认值就是 mmap 加载，正合适。
 
 #ifdef NAIWA_LLAMA_OLD_API
     struct llama_model *model = llama_load_model_from_file(path, mparams);
