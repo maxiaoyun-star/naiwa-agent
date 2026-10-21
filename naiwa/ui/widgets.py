@@ -291,6 +291,13 @@ class Chip(Button):
 
 # ------------------------------------------------------------------ 输入
 class Field(TextInput):
+    """输入框。
+
+    Android 上有两个坑：
+    1. 有些 ROM 上点一下不弹输入法 —— 这里在触摸时显式 focus + show_keyboard；
+    2. 输入法仍不弹时的兜底：长按输入框从剪贴板粘贴（``paste_clipboard``）。
+    """
+
     def __init__(self, **kwargs):
         kwargs.setdefault("multiline", False)
         kwargs.setdefault("write_tab", False)
@@ -317,6 +324,32 @@ class Field(TextInput):
 
     def _on_focus(self, _inst, value):
         self._line_color.rgba = T.ACCENT if value else T.LINE
+
+    # ------------------------------------------------------------------ 键盘兜底
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            # 显式要焦点 + 主动请求软键盘：部分国产 ROM 上只靠默认行为弹不出来
+            self.focus = True
+            try:
+                from kivy.core.window import Window
+
+                Window.show_keyboard()
+            except Exception:  # noqa: BLE001
+                pass
+        return super().on_touch_down(touch)
+
+    def paste_clipboard(self) -> str:
+        """从剪贴板粘进来（输入法弹不出来时的唯一出路）。"""
+        try:
+            from kivy.core.clipboard import Clipboard
+
+            text = Clipboard.paste() or ""
+        except Exception:  # noqa: BLE001
+            text = ""
+        if text:
+            self.text = text.strip()
+            self.focus = True
+        return text
 
 
 class ChatBubble(BoxLayout):

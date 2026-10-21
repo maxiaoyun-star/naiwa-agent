@@ -57,6 +57,17 @@ def _candidate_lib_dirs() -> list[Path]:
         # /data/user/0/<pkg>/files -> /data/user/0/<pkg>
         pkg_root = Path(private).parent.parent
         dirs += [pkg_root / "lib", pkg_root / "lib" / "arm64"]
+    # 最可靠的一条：问 Android 要 App 自己的 nativeLibraryDir，
+    # 不同厂商 ROM 上目录名不一定是 lib/arm64
+    try:
+        from jnius import autoclass  # type: ignore
+
+        activity = autoclass("org.kivy.android.PythonActivity").mActivity
+        native_dir = activity.getApplicationInfo().nativeLibraryDir
+        if native_dir:
+            dirs.insert(0, Path(str(native_dir)))
+    except Exception:  # noqa: BLE001
+        pass
     return dirs
 
 

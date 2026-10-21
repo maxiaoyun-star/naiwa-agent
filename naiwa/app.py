@@ -6,7 +6,9 @@ Screen 通过 ``self.app`` 访问，避免到处传参。
 
 from __future__ import annotations
 
+import sys
 import threading
+import time
 import traceback
 from typing import Callable
 
@@ -57,9 +59,69 @@ class NaiwaApp(App):
         self._stack: list[str] = ["home"]
         self._loading_model = False
 
+        self._install_exception_hooks()
         Window.bind(on_keyboard=self._on_key)
         Clock.schedule_once(self._boot, 0.5)
         return self.sm
+
+    # ------------------------------------------------------------------ 错误记录
+    def _install_exception_hooks(self) -> None:
+        """把未捕获异常写进 crash.log。
+
+        Android 上没有控制台，闪退后什么线索都没有 —— 用户反馈的三个问题里有两个
+        根本无法复现。这里至少保证下次能读到 traceback。
+        """
+        original_hook = sys.excepthook
+
+        def _hook(exc_type, exc_value, exc_tb):
+            try:
+                self.log_error("uncaught", exc_value, exc_type, exc_tb)
+            finally:
+                original_hook(exc_type, exc_value, exc_tb)
+
+        sys.excepthook = _hook
+
+        def _thread_hook(args) -> None:
+            if args.exc_value is not None:
+                self.log_error(
+                    f"thread:{getattr(args.thread, 'name', '?')}",
+                    args.exc_value,
+                    args.exc_type,
+                    args.exc_traceback,
+                )
+
+        try:
+            threading.excepthook = _thread_hook  # type: ignore[assignment]
+        except Exception:  # noqa: BLE001
+            pass
+
+    def log_error(self, where: str, exc: BaseException, exc_type=None, exc_tb=None) -> str:
+        """写一条错误到 crash.log（只保留最近 30 条），返回日志文本。"""
+        try:
+            stamp = time.strftime("%m-%d %H:%M:%S")
+            text = "".join(
+                traceback.format_exception(
+                    exc_type or type(exc), exc, exc_tb or exc.__traceback__
+                )
+            )
+            line = f"[{stamp}] {where}: {text}\n"
+            print(f"[naiwa] {line}")
+            path = config.logs_dir() / "crash.log"
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(line)
+            return self.read_error_log()
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def read_error_log(self) -> str:
+        try:
+            path = config.logs_dir() / "crash.log"
+            if not path.is_file():
+                return "还没有错误记录。"
+            data = path.read_text(encoding="utf-8", errors="replace")
+            return data[-6000:] if data else "还没有错误记录。"
+        except OSError as exc:
+            return f"读不到日志：{exc}"
 
     def _boot(self, _dt=None) -> None:
         """启动后延迟执行：别和首帧抢 CPU。"""

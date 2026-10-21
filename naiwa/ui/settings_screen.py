@@ -76,10 +76,19 @@ class SettingsScreen(Screen):
         card.add_widget(label)
         return label
 
-    def _field(self, card: Card, key: str, hint: str, value: str = "", password: bool = False) -> Field:
+    def _field(self, card: Card, key: str, hint: str, value: str = "", password: bool = False, with_paste: bool = False) -> Field:
         field = Field(hint_text=hint, text=value, password=password, height=dp(44))
-        card.add_widget(field)
         self._fields[key] = field
+        if with_paste:
+            row = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(44), spacing=dp(8))
+            row.add_widget(field)
+            paste = GhostButton("粘贴", size_hint=(None, 1), width=dp(64), height=dp(44))
+            paste.font_size = sp(13)
+            paste.bind(on_release=lambda *_: field.paste_clipboard())
+            row.add_widget(paste)
+            card.add_widget(row)
+        else:
+            card.add_widget(field)
         return field
 
     def _chip_row(self, card: Card, items, group: str) -> dict[str, Chip]:
@@ -198,7 +207,10 @@ class SettingsScreen(Screen):
         self._chip_row(card, items, "provider")
         self._field(card, "remote_base", "接口地址", self.app.settings.get("remote_base", ""))
         self._field(card, "remote_model", "模型名", self.app.settings.get("remote_model", ""))
-        self._field(card, "remote_key", "API Key", self.app.secrets.get("remote_api_key", ""), password=True)
+        self._field(
+            card, "remote_key", "API Key（输入法弹不出来就点右边粘贴）",
+            self.app.secrets.get("remote_api_key", ""), password=True, with_paste=True,
+        )
 
         save = PrimaryButton("保存云端配置", height=dp(42))
         save.font_size = sp(14)
@@ -280,6 +292,29 @@ class SettingsScreen(Screen):
         clear_all.bind(on_release=lambda *_: self.app.clear_all_data())
         row.add_widget(clear_all)
         card.add_widget(row)
+
+        log_button = GhostButton("查看错误日志", height=dp(44))
+        log_button.bind(on_release=lambda *_: self.show_log())
+        card.add_widget(log_button)
+        self._hint(card, "闪退或报错后点这里，把内容拍照/截图发出来就能定位问题。")
+
+    def show_log(self) -> None:
+        """弹窗显示 crash.log —— 安卓上没控制台，这是唯一能拿到的线索。"""
+        from kivy.uix.popup import Popup
+
+        from .widgets import Body
+
+        text = self.app.read_error_log()
+        scroll = ScrollView(do_scroll_x=False)
+        box = BoxLayout(orientation="vertical", size_hint_y=None, padding=[dp(12), dp(12)], spacing=dp(8))
+        box.bind(minimum_height=box.setter("height"))
+        body = Body(text, font_size=sp(11), size_hint_y=None)
+        body.text_size = (dp(300), None)
+        body.bind(texture_size=lambda *_: setattr(body, "height", body.texture_size[1]))
+        box.add_widget(body)
+        scroll.add_widget(box)
+        popup = Popup(title="错误日志", content=scroll, size_hint=(0.94, 0.8))
+        popup.open()
 
     # ------------------------------------------------------------------ 状态
     def _say(self, text: str) -> None:

@@ -6,54 +6,67 @@
 
 from __future__ import annotations
 
-import io
+import time
 
 from kivy.clock import Clock
-from kivy.core.image import Image as CoreImage
-from kivy.graphics import Color, Line, Rectangle
 from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
+from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 
+from .. import config
 from ..campus.cas import CasError, LoginResult
 from . import theme as T
-from .widgets import Body, Card, Field, GhostButton, Muted, PrimaryButton, Screen, TopBar
+from .widgets import (
+    Body,
+    Card,
+    Field,
+    GhostButton,
+    Muted,
+    PrimaryButton,
+    Screen,
+    TopBar,
+    rounded_bg,
+)
 
 
-class CaptchaImage(Widget):
-    """把 CAS 返回的 PNG 直接贴上去，点一下换一张。"""
+class CaptchaImage(BoxLayout):
+    """验证码。
+
+    刻意不用 ``CoreImage(BytesIO)`` 直接把字节丢给纹理：那条路在部分 Android ROM 上
+    会让进程直接死掉（用户反馈过「点登录就闪退」）。改成先落盘再 ``Image(source=路径)``，
+    走的是最成熟的文件加载路径。
+    """
 
     def __init__(self, on_tap=None, **kwargs):
         kwargs.setdefault("size_hint", (None, None))
         kwargs.setdefault("size", (dp(110), dp(44)))
+        kwargs.setdefault("padding", [dp(2), dp(2)])
         super().__init__(**kwargs)
         self.on_tap = on_tap
-        self._texture = None
-        with self.canvas:
-            self._bg = Color(*T.SURFACE_ALT)
-            self._rect = Rectangle()
-            self._line_color = Color(*T.LINE)
-            self._line = Line(width=1)
+        self._path = config.data_dir() / "captcha.png"
 
-        def _sync(*_args):
-            self._rect.pos = self.pos
-            self._rect.size = self.size
-            self._line.rectangle = (self.x, self.y, self.width, self.height)
-
-        self.bind(pos=_sync, size=_sync)
+        self.image = Image(allow_stretch=True, keep_ratio=True)
+        self.add_widget(self.image)
+        rounded_bg(self, T.SURFACE_ALT, T.RADIUS_S, border_color=T.LINE)
 
     def set_png(self, data: bytes) -> None:
+        """写文件再换 source；任何异常都只记日志，不让界面崩。"""
         try:
-            image = CoreImage(io.BytesIO(data), ext="png")
-            self._texture = image.texture
-            self._rect.texture = self._texture
-        except Exception:  # noqa: BLE001 - 图坏了不该崩，重取一张即可
-            self._texture = None
+            with open(self._path, "wb") as handle:
+                handle.write(data)
+            # source 必须是新值（带时间戳）才会强制重新解码
+            self.image.source = ""
+            self.image.reload()
+            self.image.source = f"{self._path}?t={int(time.time() * 1000)}"
+        except Exception as exc:  # noqa: BLE001
+            print(f"[naiwa] captcha decode failed: {exc}")
 
     def placeholder(self) -> None:
-        self._texture = None
-        self._rect.texture = None
+        try:
+            self.image.source = ""
+        except Exception:  # noqa: BLE001
+            pass
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos) and self.on_tap is not None:
@@ -127,12 +140,18 @@ class LoginScreen(Screen):
         self.remember.text = "记住密码：开（方便，但密码会加密存在手机上）" if value else "记住密码：关（推荐）"
 
     def on_pre_enter(self, *_args) -> None:
-        username = self.app.settings.get("cas_username", "")
-        if username and not self.username.text:
-            self.username.text = username
-        if self.app.campus.state.logged_in:
-            self.status.text = f"当前已登录：{self.app.campus.state.display()}"
-        self.reload_captcha()
+        # 这个页面是最容易因为网络/证书/ROM 差异出问题的地方，
+        # 整个入口都包起来：宁可显示一行错误，也不能把 App 带走。
+        try:
+            username = self.app.settings.get("cas_username", "")
+            if username and not self.username.text:
+                self.username.text = username
+            if self.app.campus.state.logged_in:
+                self.status.text = f"当前已登录：{self.app.campus.state.display()}"
+            self.reload_captcha()
+        except Exception as exc:  # noqa: BLE001
+            self.app.log_error("LoginScreen.on_pre_enter", exc)
+            self.status.text = f"页面初始化出错：{exc}"
 
     def reload_captcha(self) -> None:
         if self._loading:
