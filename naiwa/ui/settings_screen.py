@@ -305,6 +305,14 @@ class SettingsScreen(Screen):
         from .widgets import Body
 
         text = self.app.read_error_log()
+        native = config.logs_dir() / "native.log"
+        if native.is_file():
+            try:
+                tail = native.read_text(encoding="utf-8", errors="replace")[-2000:]
+                if tail.strip():
+                    text = text + "\n\n=== native.log ===\n" + tail
+            except OSError:
+                pass
         scroll = ScrollView(do_scroll_x=False)
         box = BoxLayout(orientation="vertical", size_hint_y=None, padding=[dp(12), dp(12)], spacing=dp(8))
         box.bind(minimum_height=box.setter("height"))

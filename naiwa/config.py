@@ -14,7 +14,7 @@ from pathlib import Path
 APP_NAME = "奶娃Agent"
 APP_NAME_EN = "Naiwa Agent"
 APP_ID = "com.naiwa.naiwaagent"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 BUILD_STAGE = "创意赛参赛版"
 # 兼容区间，同时用于「关于」页展示
 ANDROID_MIN_API = 33   # Android 13

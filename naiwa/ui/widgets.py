@@ -327,25 +327,29 @@ class Field(TextInput):
 
     # ------------------------------------------------------------------ 键盘兜底
     def show_ime(self) -> None:
-        """把 Android 输入法拉起来。
+        """把 Android 输入法拉起来（只做安全的那一半）。
 
-        只用 ``Window.show_keyboard()`` 不够 —— Kivy 里它依赖已经 request 过的
-        keyboard 对象，所以在真机上经常是空操作。先 ``request_keyboard(input_type='text')``
-        再 show，才真正会走到 SDL_StartTextInput → Android_JNI_ShowTextInput。
+        坑：``Window.request_keyboard(None, self, 'text')`` 传 None 回调，
+        IME 一按键就会往 None 上回调 → 进程直接死（小米 MIUI 上实测「点输入框闪退」）。
+        正确做法是让 TextInput 自己建 keyboard（``_ensure_keyboard`` 就是它 focus 时
+        走的那条路），我们再补一个 ``show_keyboard()`` 把 IME 顶出来。
         """
         try:
+            self.focus = True
+            ensure = getattr(self, "_ensure_keyboard", None)
+            if callable(ensure):
+                ensure()
             from kivy.core.window import Window
 
-            Window.request_keyboard(None, self, "text")
             Window.show_keyboard()
         except Exception as exc:  # noqa: BLE001
             print(f"[naiwa] show_ime failed: {exc}")
 
     def on_touch_down(self, touch):
+        # 只补一次「顶 IME」，其余交给 TextInput 自己的 focus 逻辑，
+        # 免得和它抢 keyboard 对象。
         if self.collide_point(*touch.pos):
-            self.focus = True
-            # 延迟一帧：focus 生效后 SDL 才有文本输入目标，立刻调用会被忽略
-            Clock.schedule_once(lambda _dt: self.show_ime(), 0.08)
+            Clock.schedule_once(lambda _dt: self.show_ime(), 0.1)
         return super().on_touch_down(touch)
 
     def paste_clipboard(self) -> str:
