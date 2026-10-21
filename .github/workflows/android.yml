@@ -1,0 +1,121 @@
+name: Android APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_llama:
+        description: "是否编译 llama.cpp 原生库（生成 libllama.so 并打进 APK）"
+        type: boolean
+        default: true
+      model_url:
+        description: "预置模型下载直链（可选，会写进 APK 的默认配置）"
+        type: string
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------- 单元测试
+  test:
+    name: 单元测试（纯标准库）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 运行测试
+        run: python -m unittest discover -s tests -v
+
+  # ---------------------------------------------------------------- 构建 APK
+  apk:
+    name: 构建 debug APK
+    runs-on: ubuntu-22.04
+    needs: test
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git zip unzip openjdk-17-jdk python3-pip python3-venv \
+            autoconf automake libtool pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev libtinfo6 cmake \
+            libffi-dev libssl-dev build-essential ccache
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 安装 buildozer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install buildozer
+
+      # buildozer 会把 SDK/NDK/依赖源码下到 ~/.buildozer，缓存它能把重建压到 10 分钟左右
+      - name: 缓存 buildozer
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      # llama.cpp 用 NDK 交叉编译成 arm64 的 .so，再由 buildozer 的
+      # android.add_libs_arm64_v8a 打进 APK。失败不阻塞打包：App 会降级为 API 模式。
+      - name: 编译 llama.cpp（arm64）
+        if: github.event.inputs.build_llama != 'false'
+        continue-on-error: true
+        run: |
+          set -e
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          NDK_DIR="$(ls -d "$ANDROID_HOME/ndk"/* 2>/dev/null | head -n1 || true)"
+          if [ -z "$NDK_DIR" ]; then
+            echo "未找到预装 NDK，现场安装 25.2.9519653"
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;25.2.9519653" >/dev/null
+            NDK_DIR="$ANDROID_HOME/ndk/25.2.9519653"
+          fi
+          export ANDROID_NDK_HOME="$NDK_DIR"
+          chmod +x scripts/build_llama_android.sh
+          scripts/build_llama_android.sh
+
+      - name: 写入可选默认模型地址
+        if: github.event.inputs.model_url != ''
+        run: |
+          python - <<'PY'
+          import os, pathlib
+          p = pathlib.Path("naiwa/defaults.py")
+          url = os.environ["MODEL_URL"]
+          text = p.read_text(encoding="utf-8")
+          text = text.replace('DEFAULT_MODEL_URL = ""', f'DEFAULT_MODEL_URL = "{url}"')
+          p.write_text(text, encoding="utf-8")
+          print("已写入默认模型地址:", url)
+          PY
+        env:
+          MODEL_URL: ${{ github.event.inputs.model_url }}
+
+      - name: buildozer android debug
+        run: buildozer -v android debug
+
+      - name: 收集产物
+        run: |
+          mkdir -p out
+          cp bin/*.apk out/ 2>/dev/null || true
+          ls -lh out || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: naiwa-agent-debug-apk
+          path: out/*.apk
+          if-no-files-found: warn
+          retention-days: 30

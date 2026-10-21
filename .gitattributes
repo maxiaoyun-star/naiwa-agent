@@ -1,0 +1,10 @@
+# 统一换行：.sh 必须 LF，否则在 Linux runner 里会 exec format error
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.spec text eol=lf
+*.c text eol=lf
+*.md text eol=lf
+*.png binary
+*.gguf binary

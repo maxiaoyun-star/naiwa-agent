@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv*/
+venv/
+
+# Buildozer / Android
+.buildozer/
+bin/
+build/
+dist/
+*.apk
+*.aab
+libs/
+p4a-recipes/*/   # 只保留 README
+
+# 模型与下载缓存
+*.gguf
+*.part
+models/
+
+# 运行期数据（绝对不要提交）
+*.enc
+.device_key
+settings.json
+history.json
+
+# 探测产物
+probe/
+captcha.png
+naiwa_captcha.png
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
