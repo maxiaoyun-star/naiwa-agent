@@ -353,7 +353,11 @@ class Field(TextInput):
         return super().on_touch_down(touch)
 
     def paste_clipboard(self) -> str:
-        """从剪贴板粘进来（输入法弹不出来时的唯一出路）。"""
+        """从剪贴板粘进来。
+
+        刻意**不**设置 focus：focus 会触发 TextInput 去请求输入法，
+        万一 IME 那条路本身有问题，粘贴也会跟着崩。这条必须是无依赖的安全路径。
+        """
         try:
             from kivy.core.clipboard import Clipboard
 
@@ -362,7 +366,6 @@ class Field(TextInput):
             text = ""
         if text:
             self.text = text.strip()
-            self.focus = True
         return text
 
 
